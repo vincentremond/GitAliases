@@ -6,7 +6,8 @@ Global:
     
     if ($LASTEXITCODE -eq 0) {
       return git rev-parse --abbrev-ref HEAD
-    } else {
+    }
+    else {
       return
     }
   Get-Git-MainBranch: |-
@@ -28,31 +29,6 @@ Global:
     
     return 'master'
 
-  Out-Debug: |-
-    Param
-    (
-        [System.Management.Automation.InvocationInfo]$Invocation,
-
-        [Parameter(ValueFromPipeline = $true)]
-        [string[]]$Variable,
-
-        [string]$Scope = 1
-    )
-
-    Process
-    {
-        foreach($var in $Variable)
-        {
-            @(
-                "Origin: $($Invocation.MyCommand.Name)",
-                "Variable: $var",
-                'Value:',
-                (Get-Variable -Name $var -Scope $Scope -ValueOnly |
-                    Format-Table -AutoSize -Wrap | Out-String)
-            ) | Write-Debug
-        }
-    }
-
   Verbose-Git: |-
     Param
     (
@@ -69,11 +45,14 @@ Global:
             continue
           }
           $Result.AddRange($SubResult)
-        } elseif ($Value -is [string]) {
+        }
+        elseif ($Value -is [string]) {
           $Result.Add($Value)
-        } elseif ($Value -is [int]) {
+        }
+        elseif ($Value -is [int]) {
           $Result.Add($Value.ToString())
-        } else {
+        }
+        else {
           throw "Unsupported argument type: $($Value.GetType().FullName)"
         }
       }
@@ -97,13 +76,15 @@ Global:
         if ($Arg -match "^[a-zA-Z0-9-]+$") {
           $VerboseArguments += $Arg + " "
           $VerboseArgumentsColors += "White"
-        } else {
+        }
+        else {
           $Escaped += ConvertTo-Json $Arg
           $VerboseArguments += $Escaped + " "
           $VerboseArgumentsColors += "Blue"
         }
     
-      } else {
+      }
+      else {
         throw "Unsupported argument type: $($Argument.GetType().FullName)"
       }
     }
@@ -597,7 +578,6 @@ Functions:
   gst:
     Description: Run git status command
     Command: |-
-      Out-Debug -Invocation $MyInvocation -Variable args
       ${GitCommand} status $args
   
   gsta:

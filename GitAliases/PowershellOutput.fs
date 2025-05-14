@@ -2,6 +2,7 @@
 
 open System.Collections.Generic
 open Pinicola.FSharp
+open System
 
 [<RequireQualifiedAccess>]
 module KeyValuePair =
@@ -12,7 +13,13 @@ module PowershellOutput =
 
     let private indent (s: string) =
 
-        s.Split('\n', '\r') |> Seq.map (fun line -> "  " + line)
+        s.Split('\n', '\r')
+        |> Seq.map (fun line ->
+            if String.IsNullOrWhiteSpace line then
+                ""
+            else
+                "  " + line
+        )
 
     let private buildGlobalFunction (name, definition) =
         seq {
@@ -40,7 +47,8 @@ module PowershellOutput =
         }
 
     let private buildFunction gitCommand (name, definition) =
-        let fixedGitCommand = definition.Command |> String.replace "${GitCommand}" gitCommand
+        let fixedGitCommand =
+            definition.Command |> String.replace "${GitCommand}" gitCommand
 
         seq {
             yield $"function global:{name} {{"
