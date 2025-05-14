@@ -1,0 +1,696 @@
+GitCommand: Verbose-Git
+
+Global:
+  Get-Git-CurrentBranch: |-
+    git symbolic-ref --quiet HEAD *> $null
+    
+    if ($LASTEXITCODE -eq 0) {
+      return git rev-parse --abbrev-ref HEAD
+    } else {
+      return
+    }
+  Get-Git-MainBranch: |-
+    git rev-parse --git-dir *> $null
+    
+    if ($LASTEXITCODE -ne 0) {
+      return
+    }
+    
+    $branches = @('main', 'trunk')
+    
+    foreach ($branch in $branches) {
+      & git show-ref -q --verify refs/heads/$branch
+    
+      if ($LASTEXITCODE -eq 0) {
+        return $branch
+      }
+    }
+    
+    return 'master'
+
+  Out-Debug: |-
+    Param
+    (
+        [System.Management.Automation.InvocationInfo]$Invocation,
+
+        [Parameter(ValueFromPipeline = $true)]
+        [string[]]$Variable,
+
+        [string]$Scope = 1
+    )
+
+    Process
+    {
+        foreach($var in $Variable)
+        {
+            @(
+                "Origin: $($Invocation.MyCommand.Name)",
+                "Variable: $var",
+                'Value:',
+                (Get-Variable -Name $var -Scope $Scope -ValueOnly |
+                    Format-Table -AutoSize -Wrap | Out-String)
+            ) | Write-Debug
+        }
+    }
+
+  Verbose-Git: |-
+    Param
+    (
+      [Parameter(ValueFromRemainingArguments = $true)]
+      [object[]]$Arguments
+    )
+    
+    function AddArguments($Values) {
+      $Result = [System.Collections.Generic.List[Object]]::new()
+      foreach ($Value in $Values) {
+        if ($Value -is [array]) {
+          [System.Collections.Generic.List[Object]] $SubResult = AddArguments $Value
+          if ($SubResult.Count -eq 0) {
+            continue
+          }
+          $Result.AddRange($SubResult)
+        } elseif ($Value -is [string]) {
+          $Result.Add($Value)
+        } elseif ($Value -is [int]) {
+          $Result.Add($Value.ToString())
+        } else {
+          throw "Unsupported argument type: $($Value.GetType().FullName)"
+        }
+      }
+      return $Result
+    }
+    
+    $ExpandedArguments = AddArguments $Arguments
+    
+    $VerboseArguments = @()
+    $VerboseArgumentsColors = @()
+    
+    $VerboseArguments += " "
+    $VerboseArgumentsColors += "Gray"
+    
+    $VerboseArguments += "git "
+    $VerboseArgumentsColors += "Yellow"
+    
+    foreach ($Arg in $ExpandedArguments) {
+      if ($Arg -is [string]) {
+    
+        if ($Arg -match "^[a-zA-Z0-9-]+$") {
+          $VerboseArguments += $Arg + " "
+          $VerboseArgumentsColors += "White"
+        } else {
+          $Escaped += ConvertTo-Json $Arg
+          $VerboseArguments += $Escaped + " "
+          $VerboseArgumentsColors += "Blue"
+        }
+    
+      } else {
+        throw "Unsupported argument type: $($Argument.GetType().FullName)"
+      }
+    }
+    
+    Write-Color -Text $VerboseArguments -Color $VerboseArgumentsColors
+    & git $ExpandedArguments
+
+RemoveAlias:
+  - gc
+  - gcb
+  - gcm
+  - gcs
+  - gl
+  - gm
+  - gp
+  - gpv
+
+Functions:
+  g:
+    Description: Run git command
+    Command: ${GitCommand} $args
+  
+  ga:
+    Description: Run git add command
+    Command: ${GitCommand} add $args
+  
+  gaa:
+    Description: Run git add --all command
+    Command: ${GitCommand} add --all $args
+  
+  gapa:
+    Description: Run git add --patch command
+    Command: ${GitCommand} add --patch $args
+  
+  gau:
+    Description: Run git add --update command
+    Command: ${GitCommand} add --update $args
+  
+  gb:
+    Description: Run git branch command
+    Command: ${GitCommand} branch $args
+  
+  gba:
+    Description: Run git branch -a command
+    Command: ${GitCommand} branch -a $args
+  
+  gbd:
+    Description: Run git branch -d command
+    Command: ${GitCommand} branch -d $args
+  
+  gbda:
+    Description: Run git branch -d command for merged branches
+    Command: |-
+      $MainBranch = Get-Git-MainBranch
+      $MergedBranchs = $(git branch --merged | Select-String "^(\*|\s*($MainBranch|develop|dev)\s*$)" -NotMatch).Line
+      $MergedBranchs | ForEach-Object {
+        if ([string]::IsNullOrEmpty($_)) {
+          return
+        }
+        $branchName = $_.Trim()
+        ${GitCommand} branch -d $branchName
+      }
+  
+  gbl:
+    Description: Run git blame command
+    Command: ${GitCommand} blame -b -w $args
+  
+  gbnm:
+    Description: Run git branch --no-merged command
+    Command: ${GitCommand} branch --no-merged $args
+  
+  gbr:
+    Description: Run git branch --remote command
+    Command: ${GitCommand} branch --remote $args
+  
+  gbs:
+    Description: Run git bisect command
+    Command: ${GitCommand} bisect $args
+  
+  gbsb:
+    Description: Run git bisect bad command
+    Command: ${GitCommand} bisect bad $args
+  
+  gbsg:
+    Description: Run git bisect good command
+    Command: ${GitCommand} bisect good $args
+  
+  gbsr:
+    Description: Run git bisect reset command
+    Command: ${GitCommand} bisect reset $args
+  
+  gbss:
+    Description: Run git bisect start command
+    Command: ${GitCommand} bisect start $args
+  
+  gc:
+    Description: Run git commit -v command
+    Command: ${GitCommand} commit -v $args
+  
+  gc!:
+    Description: Run git commit -v --amend command
+    Command: ${GitCommand} commit -v --amend $args
+  
+  gcn!:
+    Description: Run git commit -v --no-edit --amend command
+    Command: ${GitCommand} commit -v --no-edit --amend $args
+  
+  gca:
+    Description: Run git commit -v -a command
+    Command: ${GitCommand} commit -v -a $args
+  
+  gcam:
+    Description: Run git commit -a -m command
+    Command: ${GitCommand} commit -a -m $args
+  
+  gca!:
+    Description: Run git commit -v -a --amend command
+    Command: ${GitCommand} commit -v -a --amend $args
+  
+  gcan!:
+    Description: Run git commit -v -a --no-edit --amend command
+    Command: ${GitCommand} commit -v -a --no-edit --amend $args
+  
+  gcans!:
+    Description: Run git commit -v -a -s --no-edit --amend command
+    Command: ${GitCommand} commit -v -a -s --no-edit --amend $args
+  
+  gcb:
+    Description: Run git checkout -b command
+    Command: ${GitCommand} checkout -b $args
+  
+  gcf:
+    Description: Run git config --list command
+    Command: ${GitCommand} config --list $args
+  
+  gcl:
+    Description: Run git clone --recursive command
+    Command: ${GitCommand} clone --recursive $args
+  
+  gclean:
+    Description: Run git clean -df command
+    Command: ${GitCommand} clean -df $args
+  
+  gcm:
+    Description: Run git checkout command
+    Command: |-
+      $MainBranch = Get-Git-MainBranch
+      ${GitCommand} checkout $MainBranch $args
+  
+  gcd:
+    Description: Run git checkout develop command
+    Command: ${GitCommand} checkout develop $args
+  
+  gcmsg:
+    Description: Run git commit -m command
+    Command: ${GitCommand} commit -m $args
+  
+  gco:
+    Description: Run git checkout command
+    Command: ${GitCommand} checkout $args
+  
+  gcount:
+    Description: Run git shortlog -sn command
+    Command: ${GitCommand} shortlog -sn $args
+  
+  gcp:
+    Description: Run git cherry-pick command
+    Command: ${GitCommand} cherry-pick $args
+  
+  gcpa:
+    Description: Run git cherry-pick --abort command
+    Command: ${GitCommand} cherry-pick --abort $args
+  
+  gcpc:
+    Description: Run git cherry-pick --continue command
+    Command: ${GitCommand} cherry-pick --continue $args
+  
+  gcs:
+    Description: Run git commit -S command
+    Command: ${GitCommand} commit -S $args
+  
+  gd:
+    Description: Run git diff command
+    Command: ${GitCommand} diff $args
+  
+  gds:
+    Description: Run git diff --staged command
+    Command: ${GitCommand} diff --staged $args
+  
+  gdca:
+    Description: Run git diff --cached command
+    Command: ${GitCommand} diff --cached $args
+  
+  gdt:
+    Description: Run git diff-tree --no-commit-id --name-only -r command
+    Command: ${GitCommand} diff-tree --no-commit-id --name-only -r $args
+  
+  gdw:
+    Description: Run git diff --word-diff command
+    Command: ${GitCommand} diff --word-diff $args
+  
+  gf:
+    Description: Run git fetch command
+    Command: ${GitCommand} fetch $args
+  
+  gfa:
+    Description: Run git fetch --all --prune command
+    Command: ${GitCommand} fetch --all --prune $args
+  
+  gfo:
+    Description: Run git fetch origin command
+    Command: ${GitCommand} fetch origin $args
+  
+  gg:
+    Description: Run git gui citool command
+    Command: ${GitCommand} gui citool $args
+  
+  gga:
+    Description: Run git gui citool --amend command
+    Command: ${GitCommand} gui citool --amend $args
+  
+  ggf:
+    Description: Run git push --force origin command
+    Command: |-
+      $CurrentBranch = Get-Git-CurrentBranch
+      ${GitCommand} push --force origin $CurrentBranch
+  
+  ggfl:
+    Description: Run git push --force-with-lease origin command
+    Command: |-
+      $CurrentBranch = Get-Git-CurrentBranch
+      ${GitCommand} push --force-with-lease origin $CurrentBranch
+  
+  ghh:
+    Description: Run git help command
+    Command: ${GitCommand} help $args
+  
+  ggsup:
+    Description: Run git branch --set-upstream-to=origin/$CurrentBranch command
+    Command: |-
+      $CurrentBranch = Get-Git-CurrentBranch
+      ${GitCommand} branch --set-upstream-to=origin/$CurrentBranch
+  
+  gpsup:
+    Description: Run git push --set-upstream origin command
+    Command: |-
+      $CurrentBranch = Get-Git-CurrentBranch
+      ${GitCommand} push --set-upstream origin $CurrentBranch
+  
+  gignore:
+    Description: Run git update-index --assume-unchanged command
+    Command: ${GitCommand} update-index --assume-unchanged $args
+  
+  gignored:
+    Description: Run git ls-files -v | Select-String "^[a-z]" -CaseSensitive command
+    Command: ${GitCommand} ls-files -v | Select-String "^[a-z]" -CaseSensitive
+  
+  gl:
+    Description: Run git pull command
+    Command: ${GitCommand} pull $args
+  
+  glg:
+    Description: Run git log --stat --color command
+    Command: ${GitCommand} log --stat --color $args
+  
+  glgg:
+    Description: Run git log --graph --color command
+    Command: ${GitCommand} log --graph --color $args
+  
+  glgga:
+    Description: Run git log --graph --decorate --all command
+    Command: ${GitCommand} log --graph --decorate --all $args
+  
+  glgm:
+    Description: Run git log --graph --max-count=10 command
+    Command: ${GitCommand} log --graph --max-count=10 $args
+  
+  glgp:
+    Description: Run git log --stat --color -p command
+    Command: ${GitCommand} log --stat --color -p $args
+  
+  glo:
+    Description: Run git log --oneline --decorate --color command
+    Command: ${GitCommand} log --oneline --decorate --color $args
+  
+  glog:
+    Description: Run git log --oneline --decorate --color --graph command
+    Command: ${GitCommand} log --oneline --decorate --color --graph $args
+  
+  gloga:
+    Description: Run git log --oneline --decorate --color --graph --all command
+    Command: ${GitCommand} log --oneline --decorate --color --graph --all $args
+  
+  glol:
+    Description: Run git log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit command
+    Command: ${GitCommand} log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit $args
+  
+  glola:
+    Description: Run git log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit --all command
+    Command: ${GitCommand} log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit --all $args
+  
+  gm:
+    Description: Run git merge command
+    Command: ${GitCommand} merge $args
+  
+  gmom:
+    Description: Run git merge origin/$MainBranch command
+    Command: |-
+      $MainBranch = Get-Git-MainBranch
+      ${GitCommand} merge origin/$MainBranch $args
+  
+  gmt:
+    Description: Run git mergetool --no-prompt command
+    Command: ${GitCommand} mergetool --no-prompt $args
+  
+  gmtvim:
+    Description: Run git mergetool --no-prompt --tool=vimdiff command
+    Command: ${GitCommand} mergetool --no-prompt --tool=vimdiff $args
+  
+  gmum:
+    Description: Run git merge upstream/$MainBranch command
+    Command: |-
+      $MainBranch = Get-Git-MainBranch
+      ${GitCommand} merge upstream/$MainBranch $args
+  
+  gp:
+    Description: Run git push command
+    Command: ${GitCommand} push $args
+  
+  gpd:
+    Description: Run git push --dry-run command
+    Command: ${GitCommand} push --dry-run $args
+  
+  gpf:
+    Description: Run git push --force-with-lease command
+    Command: ${GitCommand} push --force-with-lease $args
+  
+  gpf!:
+    Description: Run git push --force command
+    Command: ${GitCommand} push --force $args
+  
+  gpoat:
+    Description: Run git push origin --all command
+    Command: ${GitCommand} push origin --all $args
+  
+  gpr:
+    Description: Run git pull --rebase command
+    Command: ${GitCommand} pull --rebase $args
+  
+  gpra:
+    Description: Run git pull --rebase --autostash command
+    Command: ${GitCommand} pull --rebase --autostash $args
+  
+  gpristine:
+    Description: Run git reset --hard and git clean -dfx command
+    Command: |-
+      ${GitCommand} reset --hard $args
+      ${GitCommand} clean -dfx $args
+  
+  gprv:
+    Description: Run git pull --rebase -v command
+    Command: ${GitCommand} pull --rebase -v $args
+  
+  gpu:
+    Description: Run git push upstream command
+    Command: ${GitCommand} push upstream $args
+  
+  gpv:
+    Description: Run git push -v command
+    Command: ${GitCommand} push -v $args
+  
+  gr:
+    Description: Run git remote command
+    Command: ${GitCommand} remote $args
+  
+  gra:
+    Description: Run git remote add command
+    Command: ${GitCommand} remote add $args
+  
+  grb:
+    Description: Run git rebase command
+    Command: ${GitCommand} rebase $args
+  
+  grba:
+    Description: Run git rebase --abort command
+    Command: ${GitCommand} rebase --abort $args
+  
+  grbc:
+    Description: Run git rebase --continue command
+    Command: ${GitCommand} rebase --continue $args
+  
+  grbi:
+    Description: Run git rebase -i command
+    Command: ${GitCommand} rebase -i $args
+  
+  grbm:
+    Description: Run git rebase $MainBranch command
+    Command: |-
+      $MainBranch = Get-Git-MainBranch
+      ${GitCommand} rebase $MainBranch $args
+  
+  grbs:
+    Description: Run git rebase --skip command
+    Command: ${GitCommand} rebase --skip $args
+  
+  grh:
+    Description: Run git reset command
+    Command: ${GitCommand} reset $args
+  
+  grhh:
+    Description: Run git reset --hard command
+    Command: ${GitCommand} reset --hard $args
+  
+  grmv:
+    Description: Run git remote rename command
+    Command: ${GitCommand} remote rename $args
+  
+  groh:
+    Description: Run git reset origin/$CurrentBranch --hard command
+    Command: |-
+      $CurrentBranch = Get-Git-CurrentBranch
+      ${GitCommand} reset origin/$CurrentBranch --hard $args
+  
+  grrm:
+    Description: Run git remote remove command
+    Command: ${GitCommand} remote remove $args
+  
+  grs:
+    Description: Run git restore command
+    Command: ${GitCommand} restore $args
+  
+  grst:
+    Description: Run git restore --staged command
+    Command: ${GitCommand} restore --staged $args
+  
+  grset:
+    Description: Run git remote set-url command
+    Command: ${GitCommand} remote set-url $args
+  
+  grt:
+    Description: Set current directory at the root of the git repository
+    Command: |-
+      try {
+        $RootPath = git rev-parse --show-toplevel
+      }
+      catch {
+        $RootPath = "."
+      }
+      Set-Location $RootPath
+  
+  gru:
+    Description: Run git reset -- command
+    Command: ${GitCommand} reset -- $args
+  
+  grup:
+    Description: Run git remote update command
+    Command: ${GitCommand} remote update $args
+  
+  grv:
+    Description: Run git remote -v command
+    Command: ${GitCommand} remote -v $args
+  
+  gsb:
+    Description: Run git status -sb command
+    Command: ${GitCommand} status -sb $args
+  
+  gsd:
+    Description: Run git svn dcommit command
+    Command: ${GitCommand} svn dcommit $args
+  
+  gsh:
+    Description: Run git show command
+    Command: ${GitCommand} show $args
+  
+  gsi:
+    Description: Run git submodule init command
+    Command: ${GitCommand} submodule init $args
+  
+  gsps:
+    Description: Run git show --pretty=short --show-signature command
+    Command: ${GitCommand} show --pretty=short --show-signature $args
+  
+  gsr:
+    Description: Run git svn rebase command
+    Command: ${GitCommand} svn rebase $args
+  
+  gss:
+    Description: Run git status -s command
+    Command: ${GitCommand} status -s $args
+  
+  gst:
+    Description: Run git status command
+    Command: |-
+      Out-Debug -Invocation $MyInvocation -Variable args
+      ${GitCommand} status $args
+  
+  gsta:
+    Description: Run git stash save command
+    Command: ${GitCommand} stash save $args
+  
+  gstaa:
+    Description: Run git stash apply command
+    Command: ${GitCommand} stash apply $args
+  
+  gstd:
+    Description: Run git stash drop command
+    Command: ${GitCommand} stash drop $args
+  
+  gstl:
+    Description: Run git stash list command
+    Command: ${GitCommand} stash list $args
+  
+  gstp:
+    Description: Run git stash pop command
+    Command: ${GitCommand} stash pop $args
+  
+  gstc:
+    Description: Run git stash clear command
+    Command: ${GitCommand} stash clear $args
+  
+  gsts:
+    Description: Run git stash show --text command
+    Command: ${GitCommand} stash show --text $args
+  
+  gsu:
+    Description: Run git submodule update command
+    Command: ${GitCommand} submodule update $args
+  
+  gsw:
+    Description: Run git switch command
+    Command: ${GitCommand} switch $args
+  
+  gts:
+    Description: Run git tag -s command
+    Command: ${GitCommand} tag -s $args
+  
+  gunignore:
+    Description: Run git update-index --no-assume-unchanged command
+    Command: ${GitCommand} update-index --no-assume-unchanged $args
+  
+  gunwip:
+    Description: Run git log -n 1 | Select-String "--wip--" -Quiet command
+    Command: |-
+      Write-Output $(git log -n 1 | Select-String "--wip--" -Quiet).Count
+      ${GitCommand} reset HEAD~1 $args
+  
+  glum:
+    Description: Run git pull upstream $MainBranch command
+    Command: |-
+      $MainBranch = Get-Git-MainBranch
+      ${GitCommand} pull upstream $MainBranch $args
+  
+  gvt:
+    Description: Run git verify-tag command
+    Command: ${GitCommand} verify-tag $args
+  
+  gwch:
+    Description: Run git whatchanged -p --abbrev-commit --pretty=medium command
+    Command: ${GitCommand} whatchanged -p --abbrev-commit --pretty=medium $args
+  
+  gwip:
+    Description: Run git add -A and git rm $(git ls-files --deleted) 2> $null and git commit --no-verify -m '--wip-- [skip ci]' command
+    Command: |-
+      ${GitCommand} add -A $args
+      ${GitCommand} rm $(git ls-files --deleted) 2> $null $args
+      ${GitCommand} commit --no-verify -m "--wip-- [skip ci]" $args
+  
+  ggl:
+    Description: Run git pull origin $CurrentBranch command
+    Command: |-
+      $CurrentBranch = Get-Git-CurrentBranch
+      ${GitCommand} pull origin $CurrentBranch $args
+  
+  ggp:
+    Description: Run git push origin $CurrentBranch command
+    Command: |-
+      $CurrentBranch = Get-Git-CurrentBranch
+      ${GitCommand} push origin $CurrentBranch $args
+  
+  ggpnp:
+    Description: Run ggl; ggp $args command
+    Command: |-
+      ggl
+      ggp $args
+  
+  gprom:
+    Description: Run git pull --rebase origin $MainBranch $args command
+    Command: |-
+      $MainBranch = Get-Git-MainBranch
+      ${GitCommand} pull --rebase origin $MainBranch $args
