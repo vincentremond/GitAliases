@@ -29,37 +29,24 @@ Global:
     
     return 'master'
 
-  Verbose-Git: |-
-    Param
-    (
-      [Parameter(ValueFromRemainingArguments = $true)]
-      [object[]]$Arguments
-    )
-    
+  Verbose-Git: |-    
     function AddArguments($Values) {
-      $Result = [System.Collections.Generic.List[Object]]::new()
+      $Result = [System.Collections.Generic.List[string]]::new()
       foreach ($Value in $Values) {
         if ($Value -is [array]) {
-          [System.Collections.Generic.List[Object]] $SubResult = AddArguments $Value
-          if ($SubResult.Count -eq 0) {
-            continue
+          $SubResult = AddArguments $Value
+          foreach ($SubValue in $SubResult) {
+            $Result.Add($SubValue)
           }
-          $Result.AddRange($SubResult)
-        }
-        elseif ($Value -is [string]) {
-          $Result.Add($Value)
-        }
-        elseif ($Value -is [int]) {
-          $Result.Add($Value.ToString())
         }
         else {
-          throw "Unsupported argument type: $($Value.GetType().FullName)"
+          $Result.Add($Value.ToString())
         }
       }
       return $Result
     }
     
-    $ExpandedArguments = AddArguments $Arguments
+    $ExpandedArguments = AddArguments $args
     
     $VerboseArguments = @()
     $VerboseArgumentsColors = @()
@@ -139,7 +126,7 @@ Functions:
     Description: Run git branch -d command for merged branches
     Command: |-
       $MainBranch = Get-Git-MainBranch
-      $MergedBranchs = $(git branch --merged | Select-String "^(\*|\s*($MainBranch|develop|dev)\s*$)" -NotMatch).Line
+      $MergedBranchs = $(${GitCommand} branch --merged | Select-String "^(\*|\s*($MainBranch|develop|dev)\s*$)" -NotMatch).Line
       $MergedBranchs | ForEach-Object {
         if ([string]::IsNullOrEmpty($_)) {
           return
