@@ -75,3 +75,4 @@ module PowershellOutput =
             yield! buildFunctions config.GitCommand config.Functions
         }
         |> Seq.toList
+        |> String.concat Environment.NewLine
