@@ -14,12 +14,7 @@ module PowershellOutput =
     let private indent (s: string) =
 
         s.Split('\n', '\r')
-        |> Seq.map (fun line ->
-            if String.IsNullOrWhiteSpace line then
-                ""
-            else
-                "  " + line
-        )
+        |> Seq.map (fun line -> if String.IsNullOrWhiteSpace line then "" else "  " + line)
 
     let private buildGlobalFunction (name, definition) =
         seq {
