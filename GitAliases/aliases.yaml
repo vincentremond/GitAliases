@@ -473,6 +473,12 @@ Functions:
       $MainBranch = Get-Git-MainBranch
       ${GitCommand} rebase $MainBranch $args
   
+  grbom:
+    Description: Run git rebase origin/$MainBranch command
+    Command: |-
+      $MainBranch = Get-Git-MainBranch
+      ${GitCommand} rebase origin/$MainBranch $args
+  
   grbs:
     Description: Run git rebase --skip command
     Command: ${GitCommand} rebase --skip $args
