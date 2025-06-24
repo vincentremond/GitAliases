@@ -285,6 +285,18 @@ Functions:
     Description: Run git fetch origin command
     Command: ${GitCommand} fetch origin $args
   
+  gff:
+    Description: Fast-forward the current branch to the latest commit from origin
+    Command: |-
+      $CurrentBranch = Get-Git-CurrentBranch
+      ${GitCommand} update-ref "refs/heads/$CurrentBranch" "refs/remotes/origin/$CurrentBranch"
+  
+  gffm:
+    Description: Fast-forward the main branch to the latest commit from origin
+    Command: |-
+      $MainBranch = Get-Git-MainBranch
+      ${GitCommand} update-ref "refs/heads/$MainBranch" "refs/remotes/origin/$MainBranch"
+  
   gg:
     Description: Run git gui citool command
     Command: ${GitCommand} gui citool $args
